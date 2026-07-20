@@ -108,6 +108,38 @@ A comment explaining why a change was made — issue links, PR references, "we u
 **30. No secrets or PII in code, logs, or telemetry** `NEW`
 Hardcoded API keys or tokens (even in dev config) and `Logger.info`/telemetry calls that dump entire structs can leak credentials or personal data into logs. Check that config secrets come from env vars, and that logged/traced data is scrubbed of sensitive fields.
 
+## Additional Review Rules
+
+**31. Avoid loading more data than you need** `NEW`
+Fetching entire structs when only a few fields or an aggregate are needed wastes memory and bandwidth. Look for `Repo.all/2` returning full records where a `select` or `Repo.aggregate` would suffice. This matters most on hot paths or large tables.
+
+**32. Watch for repeated Enum passes over large collections** `NEW`
+Multiple `Enum.filter/map/reject` calls each traverse the collection again. For large datasets, consider whether a single `Enum.reduce` or `Stream` pipeline would be more appropriate. This is a performance review, not a style rule.
+
+**33. Avoid long-running work inside LiveView event handlers** `NEW`
+`handle_event/3` runs in the LiveView process. Slow HTTP calls, heavy computations, or external APIs can freeze the UI for that user. Check whether the work belongs in Oban, a Task, or an async assign instead.
+
+**34. Crash only on programmer errors** `NEW`
+Bang functions and partial functions (`Map.fetch!`, `hd`, `elem`, etc.) are appropriate when failure indicates a bug, not ordinary user input or external data. Verify that crashes represent impossible states rather than expected failures.
+
+**35. Context APIs should expose business operations** `NEW`
+Public context functions should describe domain actions (`register_user`, `cancel_order`) instead of becoming thin wrappers around `Repo.insert/update/delete`. This keeps business rules centralized and prevents repository leakage into callers.
+
+**36. No dynamic atoms from external input** `NEW`
+Atoms are never garbage collected. Any `String.to_atom/1` or equivalent using user-controlled input is a potential memory exhaustion vulnerability. Prefer `String.to_existing_atom/1` or explicit mappings where appropriate.
+
+**37. Don't pattern-match untrusted input unless crashing is intentional** `NEW`
+A match like `%{"id" => id} = params` will crash on malformed client input. Check whether external data should instead be validated and handled gracefully.
+
+**38. Use a single source of time within a feature** `NEW`
+Mixing `DateTime.utc_now`, `System.system_time`, `Date.utc_today`, and similar APIs can introduce subtle bugs and make testing harder. Prefer a single abstraction or time source throughout a workflow.
+
+**39. Check observability of important operations** `NEW`
+Critical paths such as payments, imports, synchronization jobs, and external API calls should emit useful telemetry or logs. Verify that failures are observable and that sensitive data is not included.
+
+**40. Verify cleanup on every exit path** `NEW`
+Resources such as temporary files, monitors, timers, ETS tables, subscriptions, or locks should be released even when an operation fails. Check both success and error paths for proper cleanup.
+
 ## Severity & Verdict Reference
 
 - **BLOCKER**: data loss, security hole, silent corruption, or a race condition.
