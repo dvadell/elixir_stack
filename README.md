@@ -13,7 +13,7 @@
       {:credo_contrib, "~> 0.2.0", only: [:dev, :test], runtime: false},
       {:extra_credo, github: "dvadell/extra_credo", only: [:dev, :test], runtime: false},
       {:jump_credo_checks, "~> 0.4", only: [:dev], runtime: false},
-      {:oeditus_credo, "~> 0.1.0", only: [:dev, :test], runtime: false},
+      {:oeditus_credo, "~> 0.8", only: [:dev, :test], runtime: false},
 ```
 
 In `.credo.exs`:
