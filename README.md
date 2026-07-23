@@ -36,19 +36,17 @@ In `.credo.exs`:
           {Jump.CredoChecks.VacuousTest, []},
           {Jump.CredoChecks.TestHasNoAssertions, []},
           {Jump.CredoChecks.WeakAssertion, []},
-          # {Jump.CredoChecks.UnusedLiveViewAssign, [ignored_assigns: []]},
-          # {Jump.CredoChecks.AssertElementSelectorCanNeverFail, []},
-          # {Jump.CredoChecks.ConditionalAssertion, []},
-          # {Jump.CredoChecks.TooManyAssertions, [max_assertions: 20]},
+          {Jump.CredoChecks.UnusedLiveViewAssign, [ignored_assigns: []]},
+          {Jump.CredoChecks.AssertElementSelectorCanNeverFail, []},
+          {Jump.CredoChecks.ConditionalAssertion, []},
+          {Jump.CredoChecks.TooManyAssertions, [max_assertions: 20]},
 
           # Excellent_migrations
           # {ExcellentMigrations.CredoCheck.MigrationsSafety, []},
 
           # Oeditus
           # Error Handling
-          {OeditusCredo.Check.Warning.MissingErrorHandling, []},
           {OeditusCredo.Check.Warning.SilentErrorCase, []},
-          {OeditusCredo.Check.Warning.SwallowingException, []},
           # Database & Performance
           {OeditusCredo.Check.Warning.InefficientFilter, []},
           {OeditusCredo.Check.Warning.NPlusOneQuery, []},
@@ -69,7 +67,6 @@ In `.credo.exs`:
           # Refactoring Suggestions
           {OeditusCredo.Check.Refactoring.SuggestFSM, []},
           # Telemetry & Observability
-          {OeditusCredo.Check.Warning.MissingTelemetryInLiveViewMount, []},
           {OeditusCredo.Check.Warning.TelemetryInRecursiveFunction, []},
           {OeditusCredo.Check.Warning.MissingTelemetryInAuthPlug, []},
           {OeditusCredo.Check.Warning.MissingTelemetryForExternalHttp, []},
@@ -92,7 +89,7 @@ In `.credo.exs`:
           {OeditusCredo.Check.Security.PathTraversal, []},
           {OeditusCredo.Check.Security.UnrestrictedFileUpload, []},
           # Security - Web
-          {OeditusCredo.Check.Security.MissingCSRFProtection, []},
+          # {OeditusCredo.Check.Security.MissingCSRFProtection, []}, -- too many false positives
           {OeditusCredo.Check.Security.SSRFVulnerability, []},
           # Security - Race Conditions
           {OeditusCredo.Check.Security.TOCTOU, []}
