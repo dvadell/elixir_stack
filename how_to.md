@@ -141,3 +141,25 @@ mix deps.get
 }
 ```
 
+9. To ensure code quality before committing, add a precommit alias to mix.exs.
+```
+  defp aliases do
+    [
+      setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
+      # ... other aliases ...
+      
+      precommit: [
+        "format",
+        "credo --strict",
+        "dialyzer",
+        "test --cover"
+      ]
+    ]
+  end
+```
+
+10. Run your full pre-commit check anytime by executing:
+```
+mix precommit
+```
+
