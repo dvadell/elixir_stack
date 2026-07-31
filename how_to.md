@@ -34,7 +34,12 @@ cd cerca
 cp ../.tool-versions .
 ```
 
-6. Open mix.exs and add the following standard modules to your deps function:
+6. Create the database
+```
+mix ecto.create
+```
+
+7. Open mix.exs and add the following standard modules to your deps function:
 ```
   defp deps do
     [
@@ -51,12 +56,12 @@ cp ../.tool-versions .
   end
 ```
 
-7. Fetch the new dependencies:
+8. Fetch the new dependencies:
 ```
 mix deps.get
 ```
 
-8. Create a .credo.exs file in the root of the project with the following custom configuration:
+9. Create a .credo.exs file in the root of the project with the following custom configuration:
 ```
 %{
   configs: [
@@ -141,7 +146,7 @@ mix deps.get
 }
 ```
 
-9. To ensure code quality before committing, add a precommit alias to mix.exs.
+10. To ensure code quality before committing, add a precommit alias to mix.exs.
 ```
   defp aliases do
     [
@@ -158,7 +163,7 @@ mix deps.get
   end
 ```
 
-10. Run your full pre-commit check anytime by executing:
+11. Run your full pre-commit check anytime by executing:
 ```
 mix precommit
 ```
