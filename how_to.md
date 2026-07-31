@@ -74,7 +74,7 @@ mix deps.get
         "format",
         "credo --strict",
         "dialyzer",
-        "test --cover"
+        ~S(cmd sh -c "MIX_ENV=test mix test --cover")
       ]
     ]
   end
