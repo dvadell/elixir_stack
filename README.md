@@ -101,7 +101,8 @@ In `.credo.exs`:
 
 NOTE: If a warning does not apply to your specific case, you can suppress it with # credo:disable-for-next-line 
 
-# TODO: check OeditusCredo.Check.Refactoring.ChangeRiskAntiPatterns from https://github.com/Oeditus/oeditus_credo
+TODO: check OeditusCredo.Check.Refactoring.ChangeRiskAntiPatterns from https://github.com/Oeditus/oeditus_credo
+
 # Tracing
 https://github.com/nietaki/rexbug or https://github.com/redink/extrace
 
