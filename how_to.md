@@ -85,3 +85,6 @@ mix deps.get
 mix precommit
 ```
 
+# Other things to do
+* Disable longpolling for liveview
+* Disable SSL redirection ( if behind SSL terminator )
