@@ -1,873 +1,704 @@
-3 SW Engineering Principles
-3.1 Export as few functions as possible from a module
-Modules are the basic code structuring entity in Erlang. A module can
-contain a large number of functions but only functions which are included
-in the export list of the module can be called from outside the module.
-Seen from the outside, the complexity of a module depends upon the
-number of functions which are exported from the module. A module
-which exports one or two functions is usually easier to understand than a
-module which exports dozens of functions.
-Modules where the ratio of exported/non-exported functions is low
-are desirable in that a user of the module only needs to understand the
-functionality of the functions which are exported from the module.
-In addition, the writer or maintainer of the code in the module can
-change the internal structure of the module in any appropriate manner
-provided the external interface remains unchanged.
-3.2 Try to reduce intermodule dependencies
-A module which calls functions in many dicerent modules will be more
-diecult to maintain than a module which only calls functions in a few
-dicerent modules.
-This is because each time we make a change to a module interface,
-we have to check all places in the code where this module is called. Re-
-ducing the interdependencies between modules simplifies the problem of
-maintaining these modules.
-We can simplify the system structure by reducing the number of dicer-
-ent modules which are called from a given module.
-Note also that it is desirable that the inter-module calling dependencies
-form a tree and not a cyclic graph.
+# Armstrong's Programming Rules and Conventions — Adapted for Elixir
 
-3.3 Put commonly used code into libraries
-Commonly used code should be placed into libraries. The libraries should
-be collections of related functions. Great ecort should be made in ensur-
-ing that libraries contain functions of the same type. Thus a library such
-as lists containing only functions for manipulating lists is a good choice,
-whereas a library, lists_and_maths containing a combination of func-
-tions for manipulating lists and for mathematics is a very bad choice.
-The best library functions have no side ecects. Libraries with functions
-with side ecects limit the re-usability.
+*Adapted from Joe Armstrong's 2003 PhD thesis, "Making reliable distributed systems in the presence of software errors" (Appendix B: Programming Rules and Conventions). Original examples were written in Erlang; here they are rewritten for Elixir, with notes on how directly each rule carries over.*
 
-3.4 Isolate “tricky” or “dirty” code into separate modules
-Oden a problem can be solved by using a mixture of clean and dirty code.
-Separate the clean and dirty code into separate modules.
-Dirty code is code that does dirty things. Example:
-• Uses the process dictionary.
-• Uses erlang:process_info/1 for strange purposes.
-• Does anything that you are not supposed to do (but have to do).
-Concentrate on trying to maximize the amount of clean code and
-minimize the amount of dirty code. Isolate the dirty code and clearly
-comment or otherwise document all side ecects and problems associated
-with this part of the code.
+---
 
-3.5 Don’t make assumptions about what the caller will do with the results of a function
-Don’t make assumptions about why a function has been called or about
-what the caller of a function wishes to do with the results.
-For example, suppose we call a routine with certain arguments which
-may be invalid. The implementer of the routine should not make any
-assumptions about what the caller of the function wishes to happen when
-the arguments are invalid.
+## 3. Software Engineering Principles
 
-Thus we should not write code like:
-do_something(Args) ->
-case check_args(Args) of
-ok ->
-{ok, do_it(Args)};
-{error, What} ->
-String = format_the_error(What),
-%% Don’t do this
-io:format("* error:~s\n", [String]),
-error
-end.
-Instead write something like:
-do_something(Args) ->
-case check_args(Args) of
-ok ->
-{ok, do_it(Args)};
-{error, What} ->
-{error, What}
-end.
-error_report({error, What}) ->
-format_the_error(What).
-In the former case the error string is always printed on standard output,
-in the latter case an error descriptor is returned to the application. The
-application can now decide what to do with this error descriptor.
-By calling error_report/1 the application can convert the error de-
-scriptor to a printable string and print it if so required. But this may not
-be the desired behaviour - in any case the decision as to what to do with
-the result is led to the caller.
+### 3.1 Export as few functions as possible from a module
 
-3.6 Abstract out common patterns of code or behaviour
-Whenever you have the same pattern of code in two or more places in the
-code try to isolate this in a common function and call this function instead
-of having the code in two dicerent places. Copied code requires much
-ecort to maintain.
-If you see similar patterns of code (i.e. almost identical) in two or more
-places in the code it is worth taking some time to see if one cannot change
-the problem slightly to make the dicerent cases the same and then write
-a small amount of additional code to describe the dicerences between the
-two.
-Avoid “copy” and “paste” programming, use functions!
+**Fully applicable.** In Elixir, every `def` is public and every `defp` is private to the module. A module with a small, deliberate public API (a handful of `def`s) is easier to understand and safer to refactor than one that exposes everything. Keep implementation details `defp`.
 
-3.7 Top-down
-Write your program using the top-down fashion, not bottom-up (starting
-with details). Top-down is a nice way of successively approaching details
-of the implementation, ending up with defining primitive functions. The
-code will be independent of representation since the representation is not
-known when the higher levels of code are designed.
+```elixir
+defmodule MyApp.Queue do
+  # public API
+  def new(), do: []
+  def add(item, queue), do: queue ++ [item]
+  def fetch(queue), do: do_fetch(queue)
 
-3.8 Don’t optimize code
-Don’t optimize your code at the first stage. First make it right, then (if
-necessary) make it fast (while keeping it right).
+  # private helpers
+  defp do_fetch([h | t]), do: {:ok, h, t}
+  defp do_fetch([]), do: :empty
+end
+```
 
-3.9 Use the principle of “least astonishment”
-The system should always respond in a manner which causes the “least
-astonishment” to the user - i.e. a user should be able to predict what will
-happen when they do something and not be astonished by the result.
-This has to do with consistency, a consistent system where dicerent
-modules do things in a similar manner will be much easier to understand
-than a system where each module does things in a dicerent manner.
-If you get astonished by what a function does, either your function
-solves the wrong problem or it has a wrong name.
+### 3.2 Try to reduce intermodule dependencies
 
-3.10 Try to eliminate side efects
-Erlang has several primitives which have side ecects. Functions which use
-these cannot be easily re-used since they cause permanent changes to their
-environment and you have to know the exact state of the process before
-calling such routines.
-Write as much as possible of the code with side-ecect free code.
-Maximize the number of pure functions.
-Collect together the functions which have side ecects and clearly doc-
-ument all the side ecects.
-With a little care most code can be written in a side-ecect free manner
-- this will make the system a lot easier to maintain, test and understand.
-3.11 Don’t allow private data structure to “leak” out of a
-module
-This is best illustrated by a simple example. We define a simple module
-called queue - to implement queues:
--module(queue).
--export([add/2, fetch/1]).
-add(Item, Q) ->
-lists:append(Q, [Item]).
-fetch([H|T]) ->
-{ok, H, T};
-fetch([]) ->
-empty.
-This implements a queue as a list, but unfortunately to use this the user
-must know that the queue is represented as a list. A typical program to
-use this might contain the following code fragment:
-NewQ = [], % Don’t do this
-Queue1 = queue:add(joe, NewQ),
-Queue2 = queue:add(mike, Queue1), ....
+**Fully applicable.** A module that calls into many other modules is fragile: every change to those modules' interfaces forces you to re-check every call site. Keep the graph of module dependencies as tree-like as possible, and avoid cycles between modules (the compiler will warn about some cyclic dependencies, but logical cycles at the design level are still worth avoiding).
 
-This is bad - since the user a) needs to know that the queue is repre-
-sented as a list and b) the implementer cannot change the internal repre-
-sentation of the queue (they might want to do this later to provide a better
-version of the module).
-Better is:
--module(queue).
--export([new/0, add/2, fetch/1]).
-new() ->
-[].
-add(Item, Q) ->
-lists:append(Q, [Item]).
-fetch([H|T]) ->
-{ok, H, T};
-fetch([]) ->
-empty.
-Now we can write:
-NewQ = queue:new(),
-Queue1 = queue:add(joe, NewQ),
-Queue2 = queue:add(mike, Queue1), ...
-Which is much better and corrects this problem. Now suppose the user
-needs to know the length of the queue, they might be tempted to write:
-Len = length(Queue) % Don’t do this
-since they know that the queue is represented as a list. This is bad
-programming practice which leads to code which is very diecult to main-
-tain and understand. If they need to know the length of the queue then a
-length function must be added to the module, thus:
+### 3.3 Put commonly used code into libraries
 
--module(queue).
--export([new/0, add/2, fetch/1, len/1]).
-new() -> [].
-add(Item, Q) ->
-lists:append(Q, [Item]).
-fetch([H|T]) ->
-{ok, H, T};
-fetch([]) ->
-empty.
-len(Q) ->
-length(Q).
-Now the user can call queue:len(Queue) instead.
-Here we say that we have “abstracted out” all the details of the queue
-(the queue is in fact what is called an “abstract data type”).
-Why do we go to all this trouble? The practice of abstracting out inter-
-nal details of the implementation allows us to change the implementation
-without changing the code of the modules which call the functions in the
-module we have changed. So, for example, a better implementation of the
-queue is as follows:
--module(queue).
--export([new/0, add/2, fetch/1, len/1]).
-new() ->
-{[],[]}.
-add(Item, {X,Y}) -> % Faster addition of elements
-{[Item|X], Y}.
-225
-fetch({X, [H|T]}) ->
-{ok, H, {X,T}};
-fetch({[], []) ->
-empty;
-fetch({X, []) ->
-% Perform this heavy computation only sometimes.
-fetch({[],lists:reverse(X)}).
-len({X,Y}) ->
-length(X) + length(Y).
+**Fully applicable.** Group functions by *what they operate on*, not by convenience. `MyApp.ListUtils` with only list-manipulation functions is good; `MyApp.Utils` mixing list helpers and math helpers is not. Prefer pure functions in these libraries — side-effect-free code is far more reusable.
 
-3.12 Make code as deterministic as possible
-A deterministic program is one which will always run in the same man-
-ner no matter how many times the program is run. A non-deterministic
-program may deliver dicerent results each time it is run. For debugging
-purposes it is a good idea to make things as deterministic as possible. This
-helps make errors reproducible.
-For example, suppose one process has to start five parallel processes
-and then check that they have started correctly, suppose further that the
-order in which these five are started does not matter.
-We could then choose to either start all five in parallel and then check
-that they have all started correctly but it would be better to start them one
-at a time and check that each one has started correctly before starting the
-next one.
+### 3.4 Isolate "tricky" or "dirty" code into separate modules
 
-3.13 Do not program “defensively”
-A defensive program is one where the programmer does not “trust” the
-input data to the part of the system they are programming. In general one
-should not test input data to functions for correctness. Most of the code
-in the system should be written with the assumption that the input data to
-the function in question is correct. Only a small part of the code should
-actually perform any checking of the data. This is usually done when data
-“enters” the system for the first time, so once data has been checked as it
-enters the system it should thereader be assumed correct.
-Example:
-%% Args: Option is all | normal
-get_server_usage_info(Option, AsciiPid) ->
-Pid = list_to_pid(AsciiPid),
-case Option of
-all -> get_all_info(Pid);
-normal -> get_normal_info(Pid)
-end.
-The function will crash if Option neither normal nor all, and it
-should do that. The caller is responsible for supplying correct input.
+**Fully applicable, with updated examples of "dirty."** In Elixir/Erlang, "dirty" code includes things like:
 
-3.14 Isolate hardware interfaces with a device driver
-Hardware should be isolated from the system through the use of device
-drivers. The device drivers should implement hardware interfaces which
-make the hardware appear as if they were Erlang processes. Hardware
-should be made to look and behave like normal Erlang processes. Hard-
-ware should appear to receive and send normal Erlang messages and
-should respond in the conventional manner when errors occur.
-3.15 Do and undo things in the same function
-Suppose we have a program which opens a file, does something with it
-and closes it later. This should be coded as:
-do_something_with(File) ->
-case file:open(File, read) of,
-{ok, Stream} ->
-doit(Stream),
-file:close(Stream) % The correct solution
-Error -> Error
-end.
+* Using the process dictionary (`Process.put/2`, `Process.get/1`).
+* Using `:erlang.process_info/1` or similar introspection for non-debugging purposes.
+* Reaching for mutable ETS/`:persistent_term` state instead of passing data explicitly.
+* Any use of `Process.info`, raw message sends, or NIFs that bypass normal supervision/OTP conventions.
 
-Note how we open the ﬁle (file:open)and close it (file:close) in
-the same routine. The solution below is much harder to follow and it is
-not obvious which ﬁle is closed. Don’t program it like this:
-do_something_with(File) ->
-case file:open(File, read) of,
-{ok, Stream} ->
-doit(Stream)
-Error -> Error
-end.
-doit(Stream) ->
-....,
-func234(...,Stream,...).
-...
-func234(..., Stream, ...) ->
-...,
-file:close(Stream) %% Don’t do this
+Concentrate the dirty code in its own module, document its side effects clearly, and keep the rest of the system pure.
 
+### 3.5 Don't make assumptions about what the caller will do with the results of a function
 
-4 Error Handling
-4.1 Separate error handling and normal case code
-Don’t clutter code for the “normal case” with code designed to handle
-exceptions. As far as possible you should only program the normal case.
-If the code for the normal case fails, your process should report the error
-and crash as soon as possible. Don’t try to ﬁx up the error and continue.
-The error should be handled in a dicerent process. (See “Each process
-should only have one role” on page 229).
-Clean separation of error recovery code and normal case code should
-greatly simplify the overall system design.
-The error logs which are generated when a sodware or hardware error
-is detected will be used at a later stage to diagnose and correct the error.
-A permanent record should be kept of any information that will be helpful
-in this process.
+**Fully applicable.** Return a value describing what happened; let the caller decide how to react (log it, raise, retry, ignore it).
 
-4.2 Identify the error kernel
-One of the basic elements of system design is identifying which part of the
-system has to be correct and which part of the system does not have to be
-correct.
-In conventional operating system design the kernel of the system is
-assumed to be, and must be, correct, whereas all user application programs
-do not necessarily have to be correct. If a user application program fails
-this will only concern the application where the failure occurred but should
-not acect the integrity of the system as a whole.
-The ﬁrst part of the system design must be to identify that part of the
-system which must be correct; we call this the error kernel. Oden the
-error kernel has some kind of real-time memory resident data base which
-stores the state of the hardware.
+Don't do this:
 
-5 Processes, Servers and Messages
-5.1 Implement a process in one module
-Code for implementing a single process should be contained in one mod-
-ule. A process can call functions in any library routines but the code for
-the “top loop” of the process should be contained in a single module. The
-code for the top loop of a process should not be split into several modules -
-this would make the ﬂow of control extremely diecult to understand. This
-does not mean that one should not make use of generic server libraries,
-these are for helping structuring the control ﬂow.
-Conversely, code for no more than one kind of process should be
-implemented in a single module. Modules containing code for several
-dicerent processes can be extremely diecult to understand. The code for
-each individual process should be broken out into a separate module.
+```elixir
+def do_something(args) do
+  case check_args(args) do
+    :ok ->
+      {:ok, do_it(args)}
 
-5.2 Use processes for structuring the system
-Processes are the basic system structuring elements. But don’t use pro-
-cesses and message passing when a function call can be used instead.
+    {:error, reason} ->
+      # Don't do this
+      IO.puts("* error: #{format_the_error(reason)}")
+      :error
+  end
+end
+```
 
-5.3 Registered processes
-Registered processes should be registered with the same name as the mod-
-ule. This makes it easy to ﬁnd the code for a process.
-Only register processes that should live a long time.
+Do this instead:
 
-5.4 Assign exactly one parallel process to each true concur-
-rent activity in the system
-When deciding whether to implement things using sequential or parallel
-processes then the structure implied by the intrinsic structure of the prob-
-lem should be used. The main rule is:
-“Use one parallel process to model each truly concurrent activity in the
-real world.”
-If there is a one-to-one mapping between the number of parallel pro-
-cesses and the number of truly parallel activities in the real world, the
-program will be easy to understand.
+```elixir
+def do_something(args) do
+  case check_args(args) do
+    :ok -> {:ok, do_it(args)}
+    {:error, reason} -> {:error, reason}
+  end
+end
 
-5.5 Each process should only have one “role”
-Processes can have dicerent roles in the system, for example in the client-
-server model.
-As far as possible a process should only have one role, i.e. it can be a
-client or a server but should not combine these roles.
-Other roles which processes might have are:
-Supervisor watches other processes and restarts them if they fail.
-Worker a normal work process (can have errors).
-Trusted Worker not allowed to have errors.
+def error_report({:error, reason}) do
+  format_the_error(reason)
+end
+```
 
-5.6 Use generic functions for servers and protocol handlers
-wherever possible
-In many circumstances it is a good idea to use generic server programs
-such as the generic server implemented in the standard libraries. Con-
-230 APPENDIX B. PROGRAMMING RULES AND CONVENTIONS
-sistent use of a small set of generic servers will greatly simplify the total
-system structure.
-The same is possible for most of the protocol handling sodware in the
-system.
+The caller decides whether and how to print, log, or convert the error descriptor.
 
-5.7 Tag messages
-All messages should be tagged. This makes the order in the receive state-
-ment less important and the implementation of new messages easier.
-Don’t program like this:
-loop(State) ->
-receive
-...
-{Mod, Funcs, Args} -> % Don’t do this
-apply(Mod, Funcs, Args},
-loop(State);
-...
-end.
-The new message {get_status_info, From, Option} will intro-
-duce a conﬂict if it is placed below the {Mod, Func, Args} message.
-If messages are synchronous, the return message should be tagged
-with a new atom, describing the returned message. Example: if the incom-
-ing message is tagged get_status_info, the returned message could be
-tagged status_info. One reason for choosing dicerent tags is to make
-debugging easier.
-This is a good solution:
-loop(State) ->
-receive
-...
-% Use a tagged message.
-{execute, Mod, Funcs, Args} ->
-apply(Mod, Funcs, Args},
-231
-loop(State);
-{get_status_info, From, Option} ->
-From ! {status_info,
-get_status_info(Option, State)},
-loop(State);
-...
-end.
+### 3.6 Abstract out common patterns of code or behaviour
 
-5.8 Flush unknown messages
-Every server should have an Other alternative in at least one receive
-statement. This is to avoid ﬁlling up message queues. Example:
-main_loop() ->
-receive
-{msg1, Msg1} ->
-...,
-main_loop();
-{msg2, Msg2} ->
-...,
-main_loop();
-Other -> % Flushes the message queue.
-error_logger:error_msg(
-"Error: Process ~w got unknown msg ~w~n.",
-[self(), Other]),
-main_loop()
-end.
-5.9 Write tail-recursive servers
-All servers must be tail-recursive, otherwise the server will consume mem-
-ory until the system runs out of it.
-Don’t program like this:
-loop() ->
-receive
-232 APPENDIX B. PROGRAMMING RULES AND CONVENTIONS
-{msg1, Msg1} ->
-...,
-loop();
-stop ->
-true;
-Other ->
-error_logger:log({error, {process_got_other,
-self(), Other}}),
-loop()
-end,
-% Don’t do this!
-% This is NOT tail-recursive
-io:format("Server going down").
-This is a correct solution:
-loop() ->
-receive
-{msg1, Msg1} ->
-...,
-loop();
-stop ->
-io:format("Server going down");
-Other ->
-error_logger:log({error, {process_got_other,
-self(), Other}}),
-loop()
-end. % This is tail-recursive
-If you use some kind of server library, for example generic, you
-automatically avoid doing this mistake.
+**Fully applicable.** Duplicated logic should become a shared function — or, where the duplication is structural rather than just repeated code, a shared **behaviour** or set of **macros**. Elixir gives you extra tools here beyond plain Erlang: `defmacro`, `use`/`__using__`, and behaviours (`@behaviour`, `@callback`) are the idiomatic way to factor out a repeated *shape* of code, not just repeated *values*. Use them, but don't reach for macros before a plain function will do.
 
-5.10 Interface functions
-Use functions for interfaces whenever possible, avoid sending messages
-directly. Encapsulate message passing into interface functions. There are
-cases where you can’t do this.
-The message protocol is internal information and should be hidden to
-other modules.
-Example of interface function:
--module(fileserver).
--export([start/0, stop/0, open_file/1, ...]).
-open_file(FileName) ->
-fileserver ! {open_file_request, FileName},
-receive
-{open_file_response, Result} -> Result
-end.
-...<code>...
+### 3.7 Top-down
 
-5.11 Time-outs
-Be careful when using after in receive statements. Make sure that
-you handle the case when the message arrives later (See “Flush unknown
-messages” on page 231).
+**Fully applicable**, unchanged in spirit. Design the public shape of your module and its high-level functions first; let low-level/private helper functions and data representation follow from that, rather than starting from data structures and building up.
 
-5.12 Trapping exits
-As few processes as possible should trap exit signals. Processes should
-either trap exits or they should not. It is usually very bad practice for a
-process to “toggle” trapping exits.
+### 3.8 Don't optimize code
 
-6 Various Erlang Speciﬁc Conventions
-6.1 Use records as the principle data structure
-Use records as the principle data structure. A record is a tagged tuple and
-was introduced in Erlang version 4.3 and thereader (see EPK/NP 95:034).
-It is similar to struct in C or record in Pascal.
-If the record is to be used in several modules, its deﬁnition should be
-placed in a header ﬁle (with suex .hrl) that is included from the modules.
-If the record is only used from within one module, the deﬁnition of the
-record should be in the beginning of the ﬁle where the module is deﬁned.
-The record features of Erlang can be used to ensure cross module
-consistency of data structures and should therefore be used by interface
-functions when passing data structures between modules.
-6.2 Use selectors and constructors
-Use selectors and constructors provided by the record feature for managing
-instances of records. Don’t use matching that explicitly assumes that the
-record is a tuple. Example:
-demo() ->
-P = #person{name = "Joe", age = 29},
-#person{name = Name1} = P,% Use matching, or...
-Name2 = P#person.name. % like this.
-Don’t program like this:
-demo() ->
-P = #person{name = "Joe", age = 29},
-% Don’t do this
-{person, Name, _Age, _Phone, _Misc} = P.
+**Fully applicable.** Make it correct first. Elixir/BEAM code that "looks slow" (e.g., using `Enum` instead of hand-rolled recursion, or `String` functions on binaries) is very often fast enough; profile with tools like `:timer.tc/1`, `Benchee`, or `:observer` before optimizing, and only after correctness is established.
 
-6.3 Use tagged return values
-Use tagged return values.
-Don’t program like this:
-keysearch(Key, [{Key, Value}|_Tail]) ->
-Value; %% Don’t return untagged values!
-keysearch(Key, [{_WrongKey,_WrongValue}|Tail]) ->
-keysearch(Key, Tail);
-keysearch(Key, []) ->
-false.
+### 3.9 Use the principle of "least astonishment"
 
-Then the Key, Value cannot contain the false value. This is the correct
-solution:
-keysearch(Key, [{Key, Value}|_Tail]) ->
-{value, Value}; %% Correct. Returns tagged value.
-keysearch(Key, [{_WrongKey, _WrongValue}|Tail]) ->
-keysearch(Key, Tail);
-keysearch(Key, []) ->
-false.
+**Fully applicable.** Consistent naming and consistent behaviour across modules (e.g., all "fetch" functions return `{:ok, value} | :error`, all "get" functions raise) reduce astonishment. If a function's behavior surprises you, either it's solving the wrong problem or it's named wrong.
 
-6.4 Use catch and throw with extreme care
-Do not use catch and throw unless you know exactly what you are doing!
-Use catch and throw as little as possible.
-Catch and throw can be useful when the program handles compli-
-cated and unreliable input (from the outside world, not from your own
-reliable program) that may cause errors in many places deeply within the
-code. One example is a compiler.
+### 3.10 Try to eliminate side effects
 
-6.5 Use the process dictionary with extreme care
-Do not use get and put etc. unless you know exactly what you are doing!
-Use get and put etc. as little as possible.
-A function that uses the process dictionary can be rewritten by intro-
-ducing a new argument.
-Example:
-Don’t program like this:
-tokenize([H|T]) ->
-...;
-tokenize([]) ->
-% Don’t use get/1 (like this)
-case get_characters_from_device(get(device)) of
-eof -> [];
-{value, Chars} ->
-236 APPENDIX B. PROGRAMMING RULES AND CONVENTIONS
-tokenize(Chars)
-end.
-The correct solution:
-tokenize(_Device, [H|T]) ->
-...;
-tokenize(Device, []) ->
-% This is better
-case get_characters_from_device(Device) of
-eof -> [];
-{value, Chars} ->
-tokenize(Device, Chars)
-end.
-The use of get and put might cause a function to behave dicerently
-when called with the same input arguments. This makes the code hard
-to read since it is non-deterministic. Debugging will be more complicated
-since a function using get and put is a function of not only of its input
-arguments, but also of the process dictionary. Many of the run time errors
-in Erlang (for example bad_match) include the arguments to a function,
-but never the process dictionary.
-6.6 Don’t use import
-Don’t use -import, using it makes the code harder to read since you
-cannot directly see in what module a function is defined. Use exref
-(Cross Reference Tool) to find module dependencies.
+**Fully applicable**, and arguably even more central in Elixir, where immutability is enforced by the language itself (you can't mutate a data structure in place — you always get a new one back). Still, effectful operations exist: I/O, `GenServer` state, ETS, the process dictionary, message sends. Maximize pure functions; concentrate effects in clearly-identified places (the edges of your system, or explicit `GenServer` callbacks) and document them.
 
-6.7 Exporting functions
-Make a distinction of why a function is exported. A function can be
-exported for the following reasons (for example):
-• It is a user interface to the module.
-• It is an interface function for other modules.
-• It is called from apply, spawn etc. but only from within its module.
-Use dicerent -export groupings and comment them accordingly. Ex-
-ample:
-%% user interface
--export([help/0, start/0, stop/0, info/1]).
-%% intermodule exports
--export([make_pid/1, make_pid/3]).
--export([process_abbrevs/0, print_info/5]).
-%% exports for use within module only
--export([init/1, info_log_impl/1]).
+### 3.11 Don't allow private data structures to "leak" out of a module
 
-7 Specific Lexical and Stylistic Conventions
-7.1 Don’t write deeply nested code
-Nested code is code containing case/if/receive statements within other
-case/if/receive statements. It is bad programming style to write deeply
-nested code - the code has a tendency to drid across the page to the
-right and soon becomes unreadable. Try to limit most of your code to a
-maximum of two levels of indentation. This can be achieved by dividing
-the code into shorter functions.
+**Fully applicable**, and Elixir gives you a stronger tool for it than Erlang did: **structs**. A naive queue implemented as a bare list forces callers to know the representation:
 
-7.2 Don’t write very large modules
-A module should not contain more than 400 lines of source code. It is
-better to have several small modules than one large one.
+```elixir
+# Don't do this
+new_q = []
+queue1 = MyQueue.add(:joe, new_q)
+queue2 = MyQueue.add(:mike, queue1)
+```
 
-7.3 Don’t write very long functions
-Don’t write functions with more than 15 to 20 lines of code. Split large
-functions into several smaller ones. Don’t solve the problem by writing
-long lines.
+Better — hide the representation behind constructor and accessor functions:
 
-7.4 Don’t write very long lines
-Don’t write very long lines. A line should not have more than 80 charac-
-ters. (It will for example fit into an A4 page.)
-In Erlang 4.3 and thereader string constants will be automatically con-
-catenated. Example:
-io:format("Name: ~s, Age: ~w, Phone: ~w ~n"
-"Dictionary: ~w.~n", [Name, Age, Phone, Dict])
+```elixir
+defmodule MyQueue do
+  defstruct front: [], back: []
 
-7.5 Variable names
-Choose meaningful variable names - this is very diecult.
-If a variable name consists of several words, use “ ” or a capitalized
-letter to separate them. Example: My_variable or MyVariable.
-Avoid using “ ” as don’t care variable, use variables beginning with
-“ ” instead. Example: _Name. If at a later stage you need the value of
-the variable, you just remove the leading underscore. You will have no
-problem finding what underscore to replace and the code will be easier to
-read.
+  def new(), do: %__MODULE__{}
 
-7.6 Function names
-The function name must agree exactly with what the function does. It
-should return the kind of arguments implied by the function name. It
-should not surprise the reader. Use conventional names for conventional
-functions ( start, stop, init, main_loop).
-Functions in dicerent modules that solve the same problem should
-have the same name. Example: Module:module_info().
+  def add(item, %__MODULE__{front: front, back: back} = _q) do
+    %__MODULE__{front: [item | front], back: back}
+  end
 
-Bad function names are one of the most common programming errors
-- good choice of names is very diecult!
-Some kind of naming convention is very useful when writing lots of
-dicerent functions. For example, the name preﬁx “is_” could be used to
-signify that the function in question returns the atom true or false.
-is_...() -> true | false
-check_...() -> {ok, ...} | {error, ...}
+  def fetch(%__MODULE__{front: [], back: []}), do: :empty
 
-7.7 Module names
-Erlang has a ﬂat module structure (i.e. there are no modules within mod-
-ules). Oden, however, we might like to simulate the ecect of a hierarchical
-module structure. This can be done with sets of related modules having
-the same module preﬁx.
-If, for example, an ISDN handler is implemented using ﬁve dicerent
-and related modules. These module should be given names such as:
-isdn_init
-isdn_partb
-isdn_...
+  def fetch(%__MODULE__{front: [], back: back}) do
+    fetch(%__MODULE__{front: Enum.reverse(back), back: []})
+  end
 
-7.8 Format programs in a consistent manner
-A consistent programming style will help you, and other people, to under-
-stand your code. Dicerent people have dicerent styles concerning inden-
-tation, usage of spaces etc.
-For example you might like to write tuples with a single comma be-
-tween the elements:
-{12,23,45}
-Other people might use a comma followed by a blank:
-{12, 23, 45}
-Once you have adopted style - stick to it.
-Within a larger project, the same style should be used in all parts.
+  def fetch(%__MODULE__{front: [h | t], back: back}) do
+    {:ok, h, %__MODULE__{front: t, back: back}}
+  end
 
-8 Documenting Code
-8.1 Attribute code
-You must always correctly attribute all code in the module header. Say
-where all ideas contributing to the module came from - if your code was
-derived from some other code say where you got this code from and who
-wrote it.
-Never steal code - stealing code is taking code from some other module
-editing it and forgetting to say who wrote the original.
-Examples of useful attributes are:
--revision(’Revision: 1.14 ’).
--created(’Date: 1995/01/01 11:21:11 ’).
--created_by(’eklas@erlang’).
--modified(’Date: 1995/01/05 13:04:07 ’).
--modified_by(’mbj@erlang’).
+  def len(%__MODULE__{front: front, back: back}) do
+    length(front) + length(back)
+  end
+end
+```
 
-8.2 Provide references in the code to the speciﬁcations
-Provide cross references in the code to any documents relevant to the
-understanding of the code. For example, if the code implements some
-communication protocol or hardware interface give an exact reference
-with document and page number to the documents that were used to
-write the code.
+```elixir
+new_q = MyQueue.new()
+queue1 = MyQueue.add(:joe, new_q)
+queue2 = MyQueue.add(:mike, queue1)
+MyQueue.len(queue2)  # don't do `length(queue2)` — it isn't a plain list!
+```
 
-8.3 Document all the errors
-All errors should be listed together with an English description of what
-they mean in a separate document (See “Error Messages” on page 246.)
-By errors we mean errors which have been detected by the system.
-At a point in your program where you detect a logical error call the
-error logger thus:
-error_logger:error_msg(Format,
-{Descriptor, Arg1, ....})
-And make sure that the line {Descriptor, Arg1,...} is added to
-the error message documents.
+Because the struct's internal shape is only touched inside `MyQueue`, you're free to change the representation later (as in the original example, switching to a two-list "banker's queue" for O(1) amortized operations) without breaking any caller.
 
-8.4 Document all the principle data structures in messages
-Use tagged tuples as the principle data structure when sending messages
-between dicerent parts of the system.
-The record features of Erlang (introduced in Erlang versions 4.3 and
-thereader) can be used to ensure cross module consistency of data struc-
-tures.
-An English description of all these data structure should be docu-
-mented (See “Message Descriptions” on page 246.)
+### 3.12 Make code as deterministic as possible
 
-8.5 Comments
-Comments should be clear and concise and avoid unnecessary wordiness.
-Make sure that comments are kept up to date with the code. Check that
-comments add to the understanding of the code. Comments should be
-written in English.
-Comments about the module should not be indented and should start
-with three percent characters (%%%), (See “File Header, description” on
-page 243).
-Comments about a function should not be indented and start with two
-percent characters (%%), (See “Comment each function” on page 242).
-Comments within Erlang code should start with one percent character
-(%). If a line only contains a comment, it should be indented as Erlang
-code. This kind of comment should be placed above the statement it
-refers to. If the comment can be placed on the same line as the statement,
-this is preferred.
-%% Comment about function
-some_useful_functions(UsefulArgugument) ->
-another_functions(UsefulArgugument), % Comment at end of line
-% Comment about complicated_stmnt at the same level of indentation
-complicated_stmnt,
-......
+**Fully applicable.** If you need to start several independent things (e.g., a `Supervisor`'s children) and order doesn't logically matter, prefer starting and verifying them one at a time over kicking them all off concurrently with `Task.async_stream` or similar — determinism makes bugs reproducible. (Once you *are* confident in correctness, controlled concurrency for startup is a legitimate performance optimization — see 3.8: get it right first.)
 
-8.6 Comment each function
-The important things to document are:
-• The purpose of the function.
-• The domain of valid inputs to the function. That is, data structures
-of the arguments to the functions together with their meaning.
-• The domain of the output of the function. That is, all possible data
-structures of the return value together with their meaning.
-• If the function implements a complicated algorithm, describe it.
-• The possible causes of failure and exit signals which may be gener-
-ated by exit/1, throw/1 or any non-obvious run time errors. Note
-the dicerence between failure and returning an error.
-• Any side ecect of the function.
-Example:
-%%----------------------------------------------------------------------
-%% Function: get_server_statistics/2
-%% Purpose: Get various information from a process.
-%% Args: Option is normal|all.
-%% Returns: A list of {Key, Value}
-%% or {error, Reason} (if the process is dead)
-%%----------------------------------------------------------------------
-get_server_statistics(Option, Pid) when pid(Pid) ->
-......
+### 3.13 Do not program "defensively"
 
-8.7 Data structures
-The record should be deﬁned together with a plain text description. Ex-
-ample:
-%% File: my_data_structures.h
-%%---------------------------------------------------------------------
-%% Data Type: person
-%% where:
-%% name: A string (default is undefined).
-%% age: An integer (default is undefined).
-%% phone: A list of integers (default is []).
-%% dict: A dictionary containing various information about the person.
-%% A {Key, Value} list (default is the empty list).
-%%----------------------------------------------------------------------
--record(person, {name, age, phone = [], dict = []}).
+**Fully applicable**, and it maps directly onto Elixir's "let it crash" philosophy. Trust your input at internal boundaries; validate at the edges where data enters the system (e.g., in a Phoenix controller, or where external input first hits your app). Pattern-match aggressively and let a `MatchError`/`FunctionClauseError` happen if invariants are violated — a supervisor will restart the process.
 
-8.8 File headers, copyright
-Each ﬁle of source code must start with copyright information, for example:
-%%%---------------------------------------------------------------------
-%%% Copyright Ericsson Telecom AB 1996
-%%%
-%%% All rights reserved. No part of this computer programs(s) may be
-%%% used, reproduced,stored in any retrieval system, or transmitted,
-%%% in any form or by any means, electronic, mechanical, photocopying,
-%%% recording, or otherwise without prior written permission of
-%%% Ericsson Telecom AB.
-%%%---------------------------------------------------------------------
+```elixir
+# Option is :all | :normal
+def get_server_usage_info(option, pid) when is_pid(pid) do
+  case option do
+    :all -> get_all_info(pid)
+    :normal -> get_normal_info(pid)
+  end
+end
+```
 
-8.9 File headers, revision history
-Each ﬁle of source code must be documented with its revision history
-which shows who has been working with the ﬁles and what they have
-done to it.
-%%%---------------------------------------------------------------------
-%%% Revision History
-%%%---------------------------------------------------------------------
-%%% Rev PA1 Date 960230 Author Fred Bloggs (ETXXXXX)
-%%% Initial pre release. Functions for adding and deleting foobars
-%%% are incomplete
-%%%---------------------------------------------------------------------
-%%% Rev A Date 960230 Author Johanna Johansson (ETXYYY)
-%%% Added functions for adding and deleting foobars and changed
-%%% data structures of foobars to allow for the needs of the Baz
-%%% signalling system
-%%%---------------------------------------------------------------------
-8.10 File Header, description
-Each ﬁle must start with a short description of the module contained in
-the ﬁle and a brief description of all exported functions.
-%%%---------------------------------------------------------------------
-%%% Description module foobar_data_manipulation
-%%%---------------------------------------------------------------------
-%%% Foobars are the basic elements in the Baz signalling system. The
-%%% functions below are for manipulating that data of foobars and for
-%%% etc etc etc
-%%%---------------------------------------------------------------------
-%%% Exports
-%%%---------------------------------------------------------------------
-%%% create_foobar(Parent, Type)
-%%% returns a new foobar object
-%%% etc etc etc
-%%%---------------------------------------------------------------------
+This will raise a `CaseClauseError` if `option` is neither `:all` nor `:normal` — and it should. The caller is responsible for supplying correct input.
 
-If you know of any weakness, bugs, badly tested fea-
-tures, make a note of them in a special comment, don’t
-try to hide them. If any part of the module is incomplete,
-add a special comment. Add comments about anything which will
-be of help to future maintainers of the module. If the product of which the
-module you are writing is a success, it may still be changed and improved
-in ten years time by someone you may never meet.
-8.11 Do not comment out old code - remove it
-Add a comment in the revision history to that ecect. Remember the source
-code control system will help you!
-8.12 Use a source code control system
-All non trivial projects must use a source code control system such as RCS,
-CVS or Clearcase to keep track of all modules.
-9 The Most Common Mistakes
-• Writing functions which span many pages (See “Don’t write very
-long functions” on page 238).
-• Writing functions with deeply nested ifs receives, cases etc (See
-“Don’t write deeply nested code” on page 237).
-• Writing badly typed functions (See “Use tagged return values” on
-page 234).
-• Function names which do not reﬂect what the functions do (See
-“Function names” on page 238).
-• Variable names which are meaningless (See “Variable names” on
-page 238).
+### 3.14 Isolate hardware interfaces with a device driver
 
-• Using processes when they are not needed (See “Assign exactly one
-parallel process to each true concurrent activity in the system” on
-page 229).
-• Badly chosen data structures (Bad representations).
-• Bad comments or no comments at all (always document arguments
-and return value).
-• Unindented code.
-• Using put/get (See “Use the process dictionary with extreme care”
-on page 235).
-• No control of the message queues (See “Flush unknown messages”
-on page 231 and “Time-outs” on page 233).
-10 Required Documents
-This section describes some of the system level documents which are nec-
-essary for designing and maintaining system programmed using Erlang.
-10.1 Module Descriptions
-One chapter per module. Contains description of each module, and all
-exported functions as follows:
-• the meaning and data structures of the arguments to the functions
-• the meaning and data structure of the return value
-• the purpose of the function
-• the possible causes of failure and exit signals which may be gener-
-ated by explicit calls to exit/1.
-Format of document to be deﬁned later:
+**Applicable, reframed.** Elixir rarely talks to hardware directly (that's more the domain of Erlang NIFs/ports, or Nerves for embedded work), but the principle generalizes cleanly to **any external boundary**: wrap external services, hardware, or OS resources behind a `GenServer` or a small dedicated module so the rest of the system interacts with them the same way it interacts with any other Elixir process — via messages/function calls, with predictable error behavior. This is exactly the pattern behind libraries like `Nerves` (hardware), `:gen_tcp`-based clients, or a `Port`-wrapping `GenServer`.
 
-10.2 Message Descriptions
-The format of all inter-process messages except those deﬁned inside one
-module.
-Format of document to be deﬁned later:
+### 3.15 Do and undo things in the same function
 
-10.3 Process
-Description of all registered servers in the system and their interface and
-purpose.
-Description of the dynamic processes and their interfaces.
-Format of document to be deﬁned later:
-10.4 Error Messages
-Description of error messages
-Format of document 
-to be deﬁned later:
+**Fully applicable**, and Elixir's `File.open/2` + `with`/`after` make it easy to follow. Open and close a resource in the same function, or use `File.open!/2` with a function argument that closes automatically:
+
+```elixir
+# Recommended: File.open/2 with a fun closes the file for you
+def do_something_with(file) do
+  File.open(file, [:read], fn stream ->
+    doit(stream)
+  end)
+end
+```
+
+Or if you must manage it manually, keep open/close paired and visible in one place:
+
+```elixir
+def do_something_with(file) do
+  case File.open(file, [:read]) do
+    {:ok, stream} ->
+      result = doit(stream)
+      File.close(stream)
+      result
+
+    error ->
+      error
+  end
+end
+```
+
+Don't scatter `File.close/1` deep inside some unrelated helper function three calls away from where the file was opened — it becomes unclear which file is being closed and easy to leak a handle on an error path.
+
+---
+
+## 4. Error Handling
+
+### 4.1 Separate error handling and normal-case code
+
+**Fully applicable**, and this is one of the pillars of idiomatic Elixir/OTP: "let it crash." Write the happy path. If something unexpected happens, let the process crash and let a **supervisor** restart it, rather than defensively catching and patching up errors inline. Recovery logic belongs in a different process (the supervisor), not woven into the normal-case function.
+
+### 4.2 Identify the error kernel
+
+**Fully applicable**, and this is precisely what an OTP **supervision tree** formalizes. The "error kernel" is the small, must-be-correct part of your system — typically your top-level `Application` and `Supervisor` modules, plus any process holding critical state. Everything below it (workers, transient processes) can crash and be restarted without compromising the kernel's integrity. Designing your supervision tree *is* identifying your error kernel.
+
+---
+
+## 5. Processes, Servers and Messages
+
+### 5.1 Implement a process in one module
+
+**Fully applicable — this is the `GenServer` pattern.** The code implementing one process's "loop" (in Elixir, its `GenServer`/`Agent`/`Task` callbacks) should live in a single module, and a single module should implement at most one *kind* of process.
+
+```elixir
+defmodule MyApp.Worker do
+  use GenServer
+
+  # client API
+  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+
+  # server callbacks
+  @impl true
+  def init(opts), do: {:ok, opts}
+
+  @impl true
+  def handle_call(:get_state, _from, state), do: {:reply, state, state}
+end
+```
+
+### 5.2 Use processes for structuring the system
+
+**Fully applicable.** Processes (and `GenServer`s, `Task`s, `Agent`s built on them) are the basic structuring unit — but don't reach for a process where a plain function call would do. Spawning a process has real cost and adds concurrency-related complexity that isn't always needed.
+
+### 5.3 Registered processes
+
+**Fully applicable.** Register a long-lived process under the same name as its module (`name: __MODULE__` is the idiomatic Elixir equivalent of Erlang's same-name registration), so it's obvious where to find the code. Don't register short-lived or dynamically-spawned processes — use a `Registry` or `DynamicSupervisor` for those instead.
+
+### 5.4 Assign exactly one process to each true concurrent activity
+
+**Fully applicable, unchanged.** Model the concurrency structure of the real-world problem 1:1 with Elixir processes — one process per connection, per device, per user session, etc. — and the program stays easy to reason about.
+
+### 5.5 Each process should only have one "role"
+
+**Fully applicable**, and OTP names these roles explicitly: `Supervisor`, `GenServer` (worker), and by convention a process that must never be allowed to crash silently (a "trusted worker"). Don't write a `GenServer` that's simultaneously acting as a client to itself or mixing supervisor-like restart logic into worker logic.
+
+### 5.6 Use generic behaviours for servers and protocol handlers wherever possible
+
+**Fully applicable — use OTP behaviours.** Prefer `GenServer`, `Supervisor`, `DynamicSupervisor`, `Task`, `:gen_statem` (via Erlang interop) over hand-rolled receive loops. Consistent use of the standard behaviours across your codebase does for Elixir exactly what Armstrong describes for Erlang's `gen_server`.
+
+### 5.7 Tag messages
+
+**Fully applicable.** Tag every message with an atom so pattern matching in `handle_info`/`handle_cast`/`receive` stays unambiguous as you add new message types.
+
+Don't do this:
+
+```elixir
+def handle_info({mod, fun, args}, state) do  # Don't do this
+  apply(mod, fun, args)
+  {:noreply, state}
+end
+```
+
+A later addition like `{:get_status_info, from, option}` risks colliding in the clause ordering. Instead:
+
+```elixir
+def handle_info({:execute, mod, fun, args}, state) do
+  apply(mod, fun, args)
+  {:noreply, state}
+end
+
+def handle_call({:get_status_info, option}, _from, state) do
+  {:reply, get_status_info(option, state), state}
+end
+```
+
+If a request is synchronous, tag the *reply* with a different atom than the request (e.g. request `:get_status_info` → reply `:status_info`); it makes debugging traces much easier to read. (In idiomatic `GenServer` code, `handle_call/3`'s return value plays this role for you automatically — the "reply tag" concern mostly applies when you're doing raw `send`/`receive` instead of `GenServer.call/2`.)
+
+### 5.8 Flush unknown messages
+
+**Fully applicable.** Always have a catch-all clause in `handle_info/2` (or in a raw `receive`), or unexpected messages will pile up unbounded in the process mailbox.
+
+```elixir
+def handle_info(other, state) do
+  Logger.error("Process #{inspect(self())} got unknown message #{inspect(other)}")
+  {:noreply, state}
+end
+```
+
+### 5.9 Write tail-recursive servers
+
+**Fully applicable to raw receive loops; largely handled for you by `GenServer`.** If you write a manual `receive`-based loop, every clause must end by tail-calling the loop function, or the process leaks memory over its lifetime.
+
+```elixir
+# Don't do this — not tail-recursive
+def loop() do
+  receive do
+    {:msg1, msg1} ->
+      handle(msg1)
+      loop()
+
+    :stop ->
+      true
+  end
+
+  IO.puts("Server going down")  # runs after the receive returns — breaks tail call
+end
+```
+
+```elixir
+# Correct — tail-recursive
+def loop() do
+  receive do
+    {:msg1, msg1} ->
+      handle(msg1)
+      loop()
+
+    :stop ->
+      IO.puts("Server going down")
+
+    other ->
+      Logger.error("unexpected message: #{inspect(other)}")
+      loop()
+  end
+end
+```
+
+If you use `GenServer` (as you generally should — see 5.6), this class of bug basically disappears: the behaviour's own loop is already correctly tail-recursive, and your `handle_*` callbacks just return a value.
+
+### 5.10 Interface functions
+
+**Fully applicable — this is exactly the GenServer "client API" convention.** Never make callers `send/2` messages directly or reach into a process's mailbox protocol; wrap it in a plain function.
+
+```elixir
+defmodule MyApp.FileServer do
+  use GenServer
+
+  # client API — hides the messaging protocol
+  def open_file(filename) do
+    GenServer.call(__MODULE__, {:open_file_request, filename})
+  end
+
+  # server callback
+  @impl true
+  def handle_call({:open_file_request, filename}, _from, state) do
+    {:reply, do_open(filename), state}
+  end
+end
+```
+
+The message protocol (`{:open_file_request, filename}`) is internal and should never leak to callers of `MyApp.FileServer`.
+
+### 5.11 Time-outs
+
+**Fully applicable.** Be careful with `after` timeout clauses in `receive` (or the `timeout` option to `GenServer.call/3`) — always consider what happens if the expected message arrives *after* the timeout has already fired (see 5.8: flush unknown/late messages instead of letting them sit in the mailbox forever).
+
+### 5.12 Trapping exits
+
+**Fully applicable.** As few processes as possible should call `Process.flag(:trap_exit, true)`. A process should consistently either trap exits or not — toggling it on and off during a process's lifetime is a recipe for confusing, hard-to-reproduce bugs.
+
+---
+
+## 6. Elixir-Specific Conventions
+
+*(This section maps onto Armstrong's "Various Erlang Specific Conventions" — some rules translate almost unchanged, others are superseded by Elixir language features that didn't exist in 1990s Erlang.)*
+
+### 6.1 Use structs (not raw records) as the principal data structure
+
+**Adapted — Elixir replaces Erlang records with `defstruct`.** Erlang records are compile-time tuple sugar with no runtime identity; Elixir structs are proper tagged maps with a runtime `__struct__` field, which is strictly better for this purpose (you can `is_struct/2`, pattern-match on the module, and get compile-time field-name checking).
+
+If a struct is shared across modules, define it in its "owning" module and reference it as `%MyApp.Person{}` — there's no need for a separate header-file mechanism (`.hrl`) since Elixir modules are the natural namespace.
+
+```elixir
+defmodule MyApp.Person do
+  defstruct name: nil, age: nil, phone: [], info: %{}
+end
+```
+
+### 6.2 Use pattern matching and struct/map access, not positional tuple matching
+
+**Fully applicable**, and directly analogous to Armstrong's advice to use record selectors/constructors instead of raw tuple matching.
+
+```elixir
+def demo() do
+  p = %MyApp.Person{name: "Joe", age: 29}
+  %MyApp.Person{name: name1} = p   # pattern match, or...
+  name2 = p.name                    # dot access
+end
+```
+
+Don't do this:
+
+```elixir
+def demo() do
+  p = %MyApp.Person{name: "Joe", age: 29}
+  # Don't do this — bypasses the struct, brittle if fields change
+  {MyApp.Person, name, _age, _phone, _info} = Map.from_struct(p) |> ...
+end
+```
+
+### 6.3 Use tagged return values
+
+**Fully applicable — this is core Elixir idiom.** Prefer `{:ok, value} | :error` or `{:ok, value} | {:error, reason}` over returning a bare value that might collide with a legitimate result.
+
+Don't do this:
+
+```elixir
+def keysearch(_key, []), do: false
+def keysearch(key, [{key, value} | _tail]), do: value  # untagged!
+def keysearch(key, [_ | tail]), do: keysearch(key, tail)
+```
+
+This is ambiguous if a stored `value` happens to be `false`. Do this instead:
+
+```elixir
+def keysearch(_key, []), do: :error
+def keysearch(key, [{key, value} | _tail]), do: {:ok, value}
+def keysearch(key, [_ | tail]), do: keysearch(key, tail)
+```
+
+(In practice, reach for `List.keyfind/3`, `Keyword.fetch/2`, or `Map.fetch/2` — but the tagging principle behind them is the point.)
+
+### 6.4 Use `try`/`rescue`/`throw`/`catch` with extreme care
+
+**Fully applicable.** Don't reach for `try`/`rescue`, or especially `throw`/`catch`, unless you're sure you need them. They're legitimate for handling genuinely unreliable, deeply-nested external input (e.g., parsing untrusted data, a compiler front-end) — not as a substitute for tagged return values or normal control flow within your own trusted code.
+
+### 6.5 Use the process dictionary with extreme care
+
+**Fully applicable, unchanged.** `Process.put/2` and `Process.get/1` still exist in Elixir (they're thin wrappers over the same Erlang primitives) and the warning is identical: avoid them. A function using the process dictionary becomes non-deterministic with respect to its visible arguments — the same call can behave differently depending on hidden process state, which makes it harder to test, harder to reason about, and harder to debug (crash reports show the function's arguments, never the process dictionary).
+
+Don't do this:
+
+```elixir
+def tokenize([]) do
+  # Don't use Process.get/1 like this
+  case get_characters_from_device(Process.get(:device)) do
+    :eof -> []
+    {:value, chars} -> tokenize(chars)
+  end
+end
+```
+
+Do this instead — pass it explicitly:
+
+```elixir
+def tokenize(_device, [h | t]), do: # ...
+
+def tokenize(device, []) do
+  case get_characters_from_device(device) do
+    :eof -> []
+    {:value, chars} -> tokenize(device, chars)
+  end
+end
+```
+
+### 6.6 Don't use bare `import` — prefer explicit module calls or `alias`
+
+**Adapted.** Armstrong's `-import` doesn't exist in Elixir the same way, but the underlying concern (you can't tell at a glance which module a bare function call comes from) still applies directly to Elixir's `import`. Prefer calling functions with an explicit or aliased module prefix (`Enum.map/2`, or `alias MyApp.Foo` + `Foo.bar/1`) so the origin of every call is visible in the code. Reserve `import` for cases where it clearly improves readability (e.g., `import Ecto.Query` in a module that's overwhelmingly queries, or macros like `import ExUnit.Assertions` in tests) — and even then, scope it as tightly as possible.
+
+### 6.7 Group and comment exported functions by purpose
+
+**Adapted.** Elixir has no `-export` attribute — visibility is per-function (`def` vs `defp`) — but the underlying discipline still matters: make it clear *why* each public function exists. Use `@moduledoc`/`@doc` and grouping/comments to distinguish, for example:
+
+```elixir
+defmodule MyApp.Server do
+  @moduledoc """
+  ## Public API
+  Functions intended for callers outside this module.
+
+  ## Intermodule exports
+  Functions intended to be called from sibling modules in this app.
+
+  ## Internal (still public for testability, not part of the contract)
+  """
+
+  # --- user interface ---
+  def help(), do: # ...
+  def start(), do: # ...
+
+  # --- intermodule exports ---
+  def make_id(x), do: # ...
+
+  # --- exported only for GenServer callback dispatch ---
+  @doc false
+  def init(arg), do: # ...
+end
+```
+
+`@doc false` is the idiomatic Elixir way to mark a function as technically public (e.g., required by a behaviour) but not part of the intended API surface, keeping it out of generated docs.
+
+---
+
+## 7. Specific Lexical and Stylistic Conventions
+
+### 7.1 Don't write deeply nested code
+
+**Fully applicable.** Deeply nested `case`/`if`/`cond`/`receive` drifts code to the right and becomes unreadable. Limit nesting to roughly two levels by extracting private helper functions — or use `with` to flatten a chain of "happy path" steps instead of nesting `case`s.
+
+```elixir
+# Instead of nested case/case/case...
+def process(input) do
+  with {:ok, parsed} <- parse(input),
+       {:ok, validated} <- validate(parsed),
+       {:ok, result} <- run(validated) do
+    {:ok, result}
+  end
+end
+```
+
+### 7.2 Don't write very large modules
+
+**Fully applicable**, same guidance. Keep modules under roughly 400 lines; prefer several small, focused modules over one large one.
+
+### 7.3 Don't write very long functions
+
+**Fully applicable.** Keep functions to roughly 15–20 lines. In Elixir this often means favoring multiple function *clauses* (pattern-matched heads) over one long function body full of `case`/`cond`.
+
+### 7.4 Don't write very long lines
+
+**Fully applicable.** `mix format` enforces a default line length (98 characters) — run it, and treat its output as the house style. Multi-line strings and heredocs (`"""`) are the Elixir equivalent of Erlang's automatic string-literal concatenation.
+
+### 7.5 Variable names
+
+**Fully applicable, with Elixir naming conventions.** Elixir uses `snake_case` for variables (not `CamelCase`/underscored-capital as in Erlang). Choose meaningful names. For intentionally-unused variables, prefix with `_` (e.g., `_reason`) rather than a bare `_` if you might want the value later — makes it trivial to find and un-ignore.
+
+### 7.6 Function names
+
+**Fully applicable, with Elixir's own strong conventions layered on top.** The function name must match what it does and shouldn't surprise the reader. Elixir has specific suffix/prefix conventions worth following:
+
+* `is_*` — only for **guard-safe** boolean checks, following the same convention Armstrong describes (`is_atom?` is *not* idiomatic; note there's no `?` on `is_*` guards by convention, e.g. `is_nil/1`).
+* `*?` — for ordinary (non-guard) boolean-returning functions, e.g. `valid?/1`, `empty?/1`.
+* `*!` — for functions that raise on failure instead of returning a tagged tuple, e.g. `File.read!/1` vs `File.read/1`.
+* `to_*` — for pure conversions, e.g. `to_string/1`.
+
+Same-purpose functions across different modules should share a name — this is exactly why `Enum.map/2`, `Stream.map/2`, and `Map.map` (via `for`) share the verb `map`.
+
+### 7.7 Module names
+
+**Fully applicable, and Elixir formalizes this with real nested namespacing.** Unlike Erlang's flat module space simulated with prefixes, Elixir module names are genuinely dotted/nested (`MyApp.Isdn.Init`, `MyApp.Isdn.PartB`), which is a direct, built-in solution to the exact problem Armstrong describes solving with naming conventions like `isdn_init`, `isdn_partb`.
+
+### 7.8 Format programs in a consistent manner
+
+**Superseded (in a good way) by `mix format`.** Elixir ships with an official formatter as part of `mix`. Run `mix format` and commit a `.formatter.exs`; this eliminates the entire class of "tabs vs spaces / comma spacing" debate Armstrong is describing, project-wide, automatically.
+
+---
+
+## 8. Documenting Code
+
+### 8.1 Attribute code
+
+**Adapted.** Elixir doesn't have Armstrong's custom `-revision`/`-created_by` module attributes; that role is filled by your source control system's commit history/blame (see 8.9/8.12) plus, where relevant, a `@moduledoc` note on provenance. Still: never take someone else's code without attribution.
+
+### 8.2 Provide references in the code to the specifications
+
+**Fully applicable, unchanged.** If code implements a documented protocol, spec, or RFC, cite the exact document and section/page in a comment or `@moduledoc`.
+
+### 8.3 Document all the errors
+
+**Fully applicable.** Use `Logger.error/2` (Elixir's standard replacement for `error_logger:error_msg/2`) at the point an error is detected, and keep a running document of all distinct error conditions your system can raise/log.
+
+```elixir
+Logger.error("failed to process order", order_id: order_id, reason: reason)
+```
+
+### 8.4 Document all the principal data structures in messages
+
+**Fully applicable.** Use tagged tuples or structs as the canonical shape for inter-process messages, and document each one's fields and meaning — structs make this easier since `@type`/`@enforce_keys`/`@moduledoc` can carry the documentation right next to the definition.
+
+### 8.5 Comments
+
+**Adapted.** Elixir's comment conventions differ syntactically but the discipline is the same:
+
+* `@moduledoc """ ... """` — module-level documentation (replaces `%%%`).
+* `@doc """ ... """` — function-level documentation (replaces `%%`).
+* `#` — inline comments within code (replaces `%`), placed above or beside the line it refers to.
+
+Comments should be accurate, kept up to date, and written in clear English (or your project's chosen language) — never let them drift from the code.
+
+### 8.6 Comment each function
+
+**Fully applicable, with `@doc` and `@spec` as the concrete Elixir mechanism.** Document:
+
+* The purpose of the function.
+* Valid input domain (reinforced with `@spec`).
+* Output domain / all possible return shapes (also reinforced with `@spec`).
+* Any complex algorithm.
+* Possible failure modes — what raises, what returns `{:error, _}`.
+* Any side effects.
+
+```elixir
+@doc """
+Get various information from a process.
+
+## Arguments
+  * `option` - `:normal` or `:all`
+  * `pid` - the process to inspect
+
+## Returns
+A keyword list of `{key, value}` pairs, or `{:error, reason}` if the
+process is dead.
+"""
+@spec get_server_statistics(:normal | :all, pid()) ::
+        keyword() | {:error, term()}
+def get_server_statistics(option, pid) when is_pid(pid) do
+  # ...
+end
+```
+
+`mix docs` (via ExDoc) turns these into real, browsable documentation — a significant upgrade over Armstrong's plain-text convention.
+
+### 8.7 Data structures
+
+**Fully applicable, via `@moduledoc`/`@typedoc` on a struct.**
+
+```elixir
+defmodule MyApp.Person do
+  @moduledoc """
+  ## Fields
+    * `:name`  - a string (default `nil`)
+    * `:age`   - an integer (default `nil`)
+    * `:phone` - a list of integers (default `[]`)
+    * `:info`  - a map of miscellaneous info about the person (default `%{}`)
+  """
+  defstruct name: nil, age: nil, phone: [], info: %{}
+end
+```
+
+### 8.8 File headers, copyright
+
+**Fully applicable, unchanged in spirit.** If your project requires a copyright header, put it at the top of the file as a `#` comment block, same as any other language. Many open-source Elixir projects instead keep licensing in a single `LICENSE` file at the repo root — either is fine; be consistent within a project.
+
+### 8.9 File headers, revision history
+
+**Superseded by source control.** Don't hand-maintain a revision-history comment block in each file — `git log`/`git blame` already give you exactly this information, always up to date, without the maintenance burden or risk of staleness. (This is arguably true in modern Erlang shops too; it just wasn't in 1990s practice.)
+
+### 8.10 File header, description
+
+**Fully applicable, via `@moduledoc`.**
+
+```elixir
+defmodule MyApp.FoobarDataManipulation do
+  @moduledoc """
+  Foobars are the basic elements in the Baz signalling system. Functions
+  here manipulate foobar data.
+
+  If you know of any weaknesses, bugs, or incomplete features, note them
+  here rather than hiding them.
+  """
+end
+```
+
+### 8.11 Do not comment out old code — remove it
+
+**Fully applicable, unchanged.** Your source control system (see 8.9/8.12) is exactly the mechanism for recovering deleted code if you ever need it again. Dead, commented-out code just adds noise.
+
+### 8.12 Use a source code control system
+
+**Fully applicable, unchanged** (git being the near-universal modern choice; RCS/CVS/Clearcase have simply been superseded).
+
+---
+
+## 9. The Most Common Mistakes
+
+Directly applicable to Elixir, unchanged:
+
+* Writing functions that span many pages (§7.3).
+* Writing deeply nested `if`/`case`/`receive`/`cond` (§7.1).
+* Writing badly "typed" functions — untagged return values (§6.3).
+* Function names that don't reflect what the function does (§7.6).
+* Meaningless variable names (§7.5).
+* Using processes where a plain function call would do (§5.4).
+* Badly chosen data structures.
+* Missing or bad `@doc`/comments — always document arguments and return values.
+* Unformatted code (run `mix format`).
+* Using `Process.put/2`/`Process.get/1` (§6.5).
+* No control of message queues / mailbox (§5.8, §5.11).
+
+---
+
+## 10. Required Documents
+
+**Fully applicable, with modern Elixir tooling filling most of these roles automatically:**
+
+### 10.1 Module Descriptions
+Largely generated for you: `@moduledoc` + `@doc` + `@spec` on every public function, rendered into browsable docs by **ExDoc** (`mix docs`). This directly satisfies Armstrong's requirement for per-module, per-function documentation of arguments, return values, purpose, and failure modes.
+
+### 10.2 Message Descriptions
+No standard tool covers this automatically — document the shape of your inter-process messages (structs or tagged tuples) explicitly, e.g. in `@moduledoc` on the struct that represents the message (see 8.4/8.7), or in a dedicated protocol-design doc for cross-service messages.
+
+### 10.3 Process
+Document all named/registered processes (`GenServer`s registered via `name: __MODULE__`), their client-API interface, and purpose — plus how dynamically-spawned processes (via `DynamicSupervisor`/`Task.Supervisor`) are supervised and identified (e.g., via `Registry`).
+
+### 10.4 Error Messages
+Keep a living document (or a well-organized set of `@moduledoc`s / a wiki page) describing every distinct logged error condition in the system and what it means — same requirement as §8.3, kept centrally as well as inline.
